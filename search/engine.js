@@ -51,6 +51,8 @@ function semanticScore(queryEmbedding, detailEmbedding) {
   return Math.round(Math.max(0, (sim - 0.70) / 0.30 * 4));
 }
 
+// Scoring Rules:
+// +1 per keyword match (in title, tags, or description)
 function keywordScore(detail, query) {
   if (!query) return { score: 0, matchedKeywords: [] };
   const keywords = query.toLowerCase().split(/\s+/).filter((w) => w.length > 1 && !STOP_WORDS.has(w));
@@ -59,6 +61,10 @@ function keywordScore(detail, query) {
   return { score: matchedKeywords.length, matchedKeywords };
 }
 
+// Scoring Rules:
+// +2 if host_element matches
+// +2 if adjacent_element matches
+// +1 if exposure matches
 function contextScore(detail, { host_element, adjacent_element, exposure }) {
   let score = 0;
   const matchedFields = [];

@@ -130,8 +130,9 @@ curl -X POST http://localhost:3001/search \
     {
       "detail_id": 2,
       "title": "Window Sill Detail with Drip",
-      "score": 18,
-      "explanation": "Matched query 'window drip' (title contains 'window', tag matches 'window', description contains 'window', title contains 'drip', tag matches 'drip', description contains 'drip'). Context match: host_element=Window, adjacent_element=External Wall, exposure=External"
+      "score": 9,
+      "rank": 1,
+      "explanation": "Matched query 'window drip' (window, drip), Semantic similarity (+2), host_element=Window and adjacent_element=External Wall and exposure=External"
     }
   ]
 }
@@ -139,29 +140,30 @@ curl -X POST http://localhost:3001/search \
 
 ## Scoring Logic
 
-The search engine uses a **weighted scoring system** combining text matching and context matching.
+The search engine uses a **hybrid scoring system** combining semantic similarity, keyword matching, and context matching.
 
-### Text Matching (per keyword)
-| Field       | Points | Rationale                                    |
-|-------------|--------|----------------------------------------------|
-| Title       | +3     | Title is the strongest identifier of a detail |
-| Tags        | +2     | Tags are curated, high-signal metadata        |
-| Description | +1     | Descriptions provide supplementary context    |
+### Semantic Matching (0–4 points)
+- Uses OpenRouter `text-embedding-ada-002` to generate vector embeddings for query and details.
+- Cosine similarity is computed between the query embedding and each detail's full-text embedding.
+- Similarity range `[0.70, 1.0]` is mapped to `[0, 4]` points.
+- Handles spelling variations and partial words naturally via embeddings.
+- Gracefully falls back to keyword-only search if the API is unavailable.
 
-- **Fuzzy matching** is supported using Levenshtein distance (≤1 edit for 4-5 char words, ≤2 edits for 6+ char words)
-- **Partial/substring matching** is also supported (e.g., "win" matches "window")
+### Keyword Matching (+1 per keyword)
+- Each query keyword is searched across `title`, `tags`, and `description` (combined text).
+- +1 point per keyword found (substring match).
+- Stop words (e.g., "with", "and", "the") are filtered out.
 
 ### Context Matching (per field)
 | Field            | Points | Rationale                                          |
 |------------------|--------|---------------------------------------------------|
-| Host Element     | +3     | Primary element — strongest contextual signal      |
+| Host Element     | +2     | Primary element — strongest contextual signal      |
 | Adjacent Element | +2     | Secondary element — narrows down detail relevance  |
 | Exposure         | +1     | General classification — least specific             |
 
 ### Ranking
 - Results are sorted by total score (descending)
-- Only results with score > 0 are returned
-- Top 5 results are returned
+- Top 5 results are always returned
 - Ties are broken by detail ID (ascending)
 
 ---
@@ -169,27 +171,26 @@ The search engine uses a **weighted scoring system** combining text matching and
 ## Engineering Questions
 
 ### 1. If this system needed to support 100,000+ details, what changes would you make?
-- Migrate from in-memory arrays to a scalable Vector Database (e.g., Pinecone, pgvector).
+- Migrate from in-memory arrays to a dedicated vector database (e.g., Pinecone, pgvector) for efficient similarity search.
 - Implement server-side pagination with offset/limit parameters for search queries.
-- Add a caching layer (like Redis) for frequent queries to reduce embedding API costs.
+- Add a caching layer (Redis) for frequent queries to reduce embedding API costs.
 
 ### 2. What improvements would you make to the search or ranking logic in a production system?
-- Transition from generic embeddings to domain-specific fine-tuned architectural models.
-- Implement weighted scoring (e.g., exact title matches score higher than description keywords).
-- Add typo-tolerant fuzzy indexing for common spelling mistakes to augment semantic matches.
+- Fine-tune the embedding model on domain-specific architectural terminology for better semantic accuracy.
+- Implement per-field weighted keyword scoring (e.g., title matches worth more than description matches).
+- Add synonym expansion and stemming (e.g., "waterproofing" ↔ "waterproof") for broader recall.
 
 ### 3. What additional data or signals could help improve recommendation quality?
 - Track user click-through rates and session data to boost frequently selected details.
-- Incorporate metadata like specific climate zones, local building codes, or cost estimates.
-- Include visual embeddings from CAD drawings to allow image-to-image similarity searches.
+- Incorporate project metadata like climate zones, building codes, and construction phases.
+- Add detail relationships (which details are commonly used together) for "related details" suggestions.
 
 ### 4. If this API became a shared service used by multiple applications, what changes would you make to its architecture?
-- Decouple into microservices with an API Gateway handling routing and rate limiting.
-- Implement robust API key or JWT-based authentication for secure, tenant-level isolation.
-- Add standardized telemetry, structured logging, and health metrics for clear observability.
+- Add API key or JWT-based authentication with rate limiting per client.
+- Deploy behind a load balancer with horizontal scaling and a Redis caching layer.
+- Version the API (e.g., `/v1/search`) and provide OpenAPI/Swagger documentation.
 
 ### 5. What would you change if this system needed to support AI-based recommendations in the future?
-- Retain interaction logs to train personalized recommendation models (Collaborative Filtering).
-- Use a Retrieval-Augmented Generation (RAG) pipeline to dynamically summarize matched details.
-- Store multi-modal embeddings to proactively recommend details based on user-uploaded sketches.
-# pi-axis
+- The system already uses semantic embeddings (text-embedding-ada-002) — extend this with a reranking model (e.g., Cohere Rerank) for better precision.
+- Add a feedback loop to collect user relevance judgments and fine-tune the model on architectural data.
+- Implement a RAG (Retrieval-Augmented Generation) pipeline to generate natural language explanations for each match.

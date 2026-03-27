@@ -121,24 +121,26 @@ export default function Home() {
           onClear={handleClear}
         />
 
-        <section id="results-panel" className="bg-transparent p-0">
-          <div className="flex items-center justify-between mb-8">
-            <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-400 flex items-center gap-3">
-              Results
-            </h2>
-            {resultCount && (
-              <span className="text-sm font-medium text-slate-400 bg-slate-800/50 px-4 py-1.5 rounded-full border border-slate-700/50">
-                {resultCount}
-              </span>
-            )}
-          </div>
-          
-          <ResultsList
-            results={results}
-            isLoading={isLoading}
-            error={error}
-          />
-        </section>
+        {(results !== null || isLoading || error) && (
+          <section id="results-panel" className="bg-transparent p-0">
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-400 flex items-center gap-3">
+                Results
+              </h2>
+              {resultCount && (
+                <span className="text-sm font-medium text-slate-400 bg-slate-800/50 px-4 py-1.5 rounded-full border border-slate-700/50">
+                  {resultCount}
+                </span>
+              )}
+            </div>
+            
+            <ResultsList
+              results={results}
+              isLoading={isLoading}
+              error={error}
+            />
+          </section>
+        )}
       </main>
 
       {/* Footer */}
