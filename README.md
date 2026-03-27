@@ -16,7 +16,7 @@ A full-stack application that allows users to search and discover architectural 
 
 ```bash
 # Clone the repository
-git clone <repo-url>
+git clone https://github.com/sujoy-2811/pi-axis.git
 cd ai-ranking
 
 # Install backend dependencies
